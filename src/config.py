@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     public_webhook_url: str = ""
     port: int = 8000
     database_url: str = "sqlite:///./calls.db"
+    enable_media_stream: bool = False
 
 
 @lru_cache
