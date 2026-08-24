@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     openrouter_model: str = "google/gemini-2.0-flash-exp:free"
     llm_base_url: str = "https://openrouter.ai/api/v1"
+    llm_reasoning_effort: str = "low"
     llm_timeout_first_token: float = 3.0
 
     deepgram_api_key: str = ""

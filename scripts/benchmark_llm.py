@@ -65,39 +65,44 @@ def strip_fences(text):
     return m.group(0) if m else text
 
 
-async def run_latency(client, api_key, model):
+async def run_latency(client, api_key, model, reasoning_effort=None):
     body = {"model": model, "messages": LATENCY_MESSAGES, "stream": True}
+    if reasoning_effort:
+        body["reasoning_effort"] = reasoning_effort
     headers = {"Authorization": f"Bearer {api_key}"}
     t0 = time.perf_counter()
     ttft = None
     first_sentence_time = None
     buffer = ""
     out_chars = 0
-    async with client.stream("POST", API_URL, json=body, headers=headers) as r:
-        if r.status_code != 200:
-            detail = (await r.aread()).decode(errors="replace")[:200]
-            return {"error": f"HTTP {r.status_code}: {detail}"}
-        async for line in r.aiter_lines():
-            if not line.startswith("data:"):
-                continue
-            payload = line[5:].strip()
-            if payload == "[DONE]":
-                break
-            try:
-                data = json.loads(payload)
-            except json.JSONDecodeError:
-                continue
-            choice = (data.get("choices") or [{}])[0]
-            delta = choice.get("delta", {})
-            piece = delta.get("content") or ""
-            if not piece:
-                continue
-            if ttft is None:
-                ttft = time.perf_counter() - t0
-            buffer += piece
-            out_chars += len(piece)
-            if first_sentence_time is None and SENTENCE_END.search(buffer.strip()):
-                first_sentence_time = time.perf_counter() - t0
+    try:
+        async with client.stream("POST", API_URL, json=body, headers=headers) as r:
+            if r.status_code != 200:
+                detail = (await r.aread()).decode(errors="replace")[:200]
+                return {"error": f"HTTP {r.status_code}: {detail}"}
+            async for line in r.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    data = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+                choice = (data.get("choices") or [{}])[0]
+                delta = choice.get("delta", {})
+                piece = delta.get("content") or ""
+                if not piece:
+                    continue
+                if ttft is None:
+                    ttft = time.perf_counter() - t0
+                buffer += piece
+                out_chars += len(piece)
+                if first_sentence_time is None and SENTENCE_END.search(buffer.strip()):
+                    first_sentence_time = time.perf_counter() - t0
+    except (httpx.ReadTimeout, httpx.ConnectTimeout):
+        return {"error": "timeout"}
     total = time.perf_counter() - t0
     return {
         "ttft_s": round(ttft, 3) if ttft else None,
@@ -109,7 +114,7 @@ async def run_latency(client, api_key, model):
     }
 
 
-async def run_json(client, api_key, model, turn):
+async def run_json(client, api_key, model, turn, reasoning_effort=None):
     body = {
         "model": model,
         "messages": [
@@ -118,9 +123,14 @@ async def run_json(client, api_key, model, turn):
         ],
         "temperature": 0,
     }
+    if reasoning_effort:
+        body["reasoning_effort"] = reasoning_effort
     headers = {"Authorization": f"Bearer {api_key}"}
     t0 = time.perf_counter()
-    r = await client.post(API_URL, json=body, headers=headers)
+    try:
+        r = await client.post(API_URL, json=body, headers=headers)
+    except (httpx.ReadTimeout, httpx.ConnectTimeout):
+        return {"error": "timeout", "elapsed_s": round(time.perf_counter() - t0, 3)}
     elapsed = round(time.perf_counter() - t0, 3)
     if r.status_code != 200:
         return {"error": f"HTTP {r.status_code}: {r.text[:200]}", "elapsed_s": elapsed}
@@ -149,53 +159,71 @@ def summarize(rows, key):
     }
 
 
-async def benchmark(api_key, models, runs):
+async def benchmark(api_key, models, runs, reasoning_effort=None):
     async with httpx.AsyncClient(timeout=60) as client:
         for model in models:
             print(f"\n=== {model} ===")
             lat_rows = []
             for i in range(runs):
-                row = await run_latency(client, api_key, model)
+                row = await run_latency(client, api_key, model, reasoning_effort)
                 lat_rows.append(row)
                 status = row.get("error") or f"ttft={row.get('ttft_s')}s first_sentence={row.get('first_sentence_s')}s"
                 print(f"  latency run {i+1}/{runs}: {status}")
+                await asyncio.sleep(1)
             print(f"  TTFT median:          {summarize(lat_rows, 'ttft_s')}")
             print(f"  First-sentence med:   {summarize(lat_rows, 'first_sentence_s')}")
             print(f"  Total median:         {summarize(lat_rows, 'total_s')}")
 
             json_rows = []
             for turn, expected in zip(CLASSIFICATION_TURNS, EXPECTED):
-                row = await run_json(client, api_key, model, turn)
+                row = await run_json(client, api_key, model, turn, reasoning_effort)
                 row["expected"] = expected
                 json_rows.append(row)
                 mark = "OK " if row.get("classification") == expected else "BAD"
                 err = row.get("error", "")
                 print(f"  json [{mark}] expected={expected} got={row.get('classification')} ({row.get('elapsed_s','?')}s) {err}")
+                await asyncio.sleep(1)
 
             valid = sum(1 for r in json_rows if r.get("json_valid"))
             correct = sum(1 for r in json_rows if r.get("classification") == r["expected"])
             print(f"  JSON validity: {valid}/{len(json_rows)} | classification accuracy: {correct}/{len(json_rows)}")
 
 
+def _env_value(*names):
+    for name in names:
+        val = os.environ.get(name)
+        if val:
+            return val
+    env_file = Path(".env")
+    if env_file.exists():
+        for name in names:
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                if line.startswith(name + "="):
+                    val = line.split("=", 1)[1].strip()
+                    if val:
+                        return val
+    return None
+
+
 def main():
-    parser = argparse.ArgumentParser(description="OpenRouter free-model latency & quality benchmark")
+    parser = argparse.ArgumentParser(description="LLM latency & quality benchmark (OpenRouter or Gemini-direct)")
     parser.add_argument("--models", nargs="*", default=DEFAULT_MODELS)
     parser.add_argument("--runs", type=int, default=5)
+    parser.add_argument("--base-url", default=None)
+    parser.add_argument("--reasoning-effort", default=None, help="e.g. none/low to disable Gemini thinking for latency")
     args = parser.parse_args()
 
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        env_file = Path(".env")
-        if env_file.exists():
-            for line in env_file.read_text(encoding="utf-8").splitlines():
-                if line.startswith("OPENROUTER_API_KEY="):
-                    api_key = line.split("=", 1)[1].strip()
-                    break
-    if not api_key:
-        print("ERROR: set OPENROUTER_API_KEY in environment or .env")
-        sys.exit(1)
+    global API_URL
+    base = args.base_url or _env_value("LLM_BASE_URL") or "https://openrouter.ai/api/v1"
+    API_URL = base.rstrip("/") + "/chat/completions"
 
-    asyncio.run(benchmark(api_key, args.models, args.runs))
+    api_key = _env_value("GEMINI_API_KEY", "OPENROUTER_API_KEY")
+    if not api_key:
+        print("ERROR: set GEMINI_API_KEY or OPENROUTER_API_KEY in environment or .env")
+        sys.exit(1)
+    print(f"Benchmarking against: {base}")
+
+    asyncio.run(benchmark(api_key, args.models, args.runs, args.reasoning_effort))
 
 
 if __name__ == "__main__":

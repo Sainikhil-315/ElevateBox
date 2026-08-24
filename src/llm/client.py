@@ -16,13 +16,15 @@ def _api_key() -> str:
     return s.gemini_api_key or s.openrouter_api_key
 
 
-async def stream_chat(messages: list[dict], temperature: float = 0.7, max_tokens: int = 300) -> AsyncIterator[str]:
+async def stream_chat(messages: list[dict], temperature: float = 0.7, max_tokens: int = 1500) -> AsyncIterator[str]:
     s = get_settings()
     key = _api_key()
     if not key:
         raise LLMError("No LLM API key configured")
 
     body = {"model": s.openrouter_model, "messages": messages, "stream": True, "temperature": temperature, "max_tokens": max_tokens}
+    if s.llm_reasoning_effort:
+        body["reasoning_effort"] = s.llm_reasoning_effort
     headers = {"Authorization": f"Bearer {key}"}
     if "openrouter" in s.llm_base_url:
         headers["HTTP-Referer"] = "https://github.com/Sainikhil-315/ElevateBox"
@@ -65,7 +67,7 @@ async def chat_with_first_token_timeout(messages: list[dict], timeout_s: float |
         yield piece
 
 
-async def chat_once(messages: list[dict], temperature: float = 0.0, max_tokens: int = 300) -> str:
+async def chat_once(messages: list[dict], temperature: float = 0.0, max_tokens: int = 1500) -> str:
     chunks = []
     async for piece in stream_chat(messages, temperature=temperature, max_tokens=max_tokens):
         chunks.append(piece)
