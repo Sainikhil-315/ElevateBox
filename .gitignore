@@ -1,0 +1,25 @@
+# Secrets & environment
+.env
+*.key
+google-credentials*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Local data
+*.db
+*.sqlite3
+logs/
+architecture-diagram.png
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
