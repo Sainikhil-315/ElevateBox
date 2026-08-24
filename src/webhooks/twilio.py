@@ -78,4 +78,25 @@ async def status(request: Request) -> Response:
 
     if call_sid:
         update_call_status(call_sid, call_status, duration)
+        if call_status == "completed":
+            import asyncio
+
+            asyncio.create_task(_finalize_call(call_sid))
     return Response(status_code=204)
+
+
+async def _finalize_call(call_sid: str) -> None:
+    import asyncio
+
+    from src.db import get_call, get_turns, update_call_fields
+    from src.whatsapp.dispatcher import send_final_package
+
+    call = get_call(call_sid)
+    if not call:
+        return
+    user_turns = [t["content"] for t in get_turns(call_sid) if t["role"] == "user"]
+    if user_turns and not call.get("summary"):
+        update_call_fields(call_sid, summary=". ".join(user_turns)[:800])
+        call = get_call(call_sid)
+    await asyncio.sleep(2)
+    await send_final_package(call_sid, call)

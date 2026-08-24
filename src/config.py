@@ -12,7 +12,13 @@ class Settings(BaseSettings):
     call_target_number: str = "7093647471"
 
     openrouter_api_key: str = ""
+    gemini_api_key: str = ""
     openrouter_model: str = "google/gemini-2.0-flash-exp:free"
+    llm_base_url: str = "https://openrouter.ai/api/v1"
+    llm_timeout_first_token: float = 3.0
+
+    deepgram_api_key: str = ""
+    deepgram_language: str = "multi"
 
     deepgram_api_key: str = ""
 
@@ -25,8 +31,13 @@ class Settings(BaseSettings):
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_business_account_id: str = ""
+    whatsapp_api_version: str = "v21.0"
+    whatsapp_verify_token: str = ""
 
     applicant_mobile_number: str = "7093647471"
+    applicant_name: str = ""
+    resume_url: str = ""
+    architecture_image_url: str = ""
 
     public_webhook_url: str = ""
     port: int = 8000

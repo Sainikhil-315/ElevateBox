@@ -157,7 +157,7 @@ async def benchmark(api_key, models, runs):
             for i in range(runs):
                 row = await run_latency(client, api_key, model)
                 lat_rows.append(row)
-                status = row.get("error") or f"ttft={row['ttft']}s first_sentence={row['first_sentence_s']}s"
+                status = row.get("error") or f"ttft={row.get('ttft_s')}s first_sentence={row.get('first_sentence_s')}s"
                 print(f"  latency run {i+1}/{runs}: {status}")
             print(f"  TTFT median:          {summarize(lat_rows, 'ttft_s')}")
             print(f"  First-sentence med:   {summarize(lat_rows, 'first_sentence_s')}")

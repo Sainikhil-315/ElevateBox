@@ -24,6 +24,8 @@ def media_stream_wss_url(call_sid: str | None = None) -> str:
 def place_outbound_call(to_number: str | None = None) -> dict:
     s = get_settings()
     to = to_number or s.call_target_number
+    if not s.public_webhook_url:
+        raise RuntimeError("PUBLIC_WEBHOOK_URL not configured")
     client = get_client()
 
     voice_url = f"{s.public_webhook_url.rstrip('/')}/twilio/voice"
