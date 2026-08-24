@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     deepgram_api_key: str = ""
 
     google_application_credentials: str = ""
+    google_tts_api_key: str = ""
     tts_language_en: str = "en-IN"
     tts_language_hi: str = "hi-IN"
     tts_language_te: str = "te-IN"
