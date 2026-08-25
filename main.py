@@ -53,3 +53,9 @@ async def media_stream(ws: WebSocket):
         await session.run()
     except WebSocketDisconnect:
         logger.info("Media WS disconnected call=%s", session.call_sid)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=settings.port)

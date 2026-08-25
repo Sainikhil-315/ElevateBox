@@ -131,7 +131,7 @@ class MediaSession:
         await self._handle_user_utterance(text)
 
     async def _handle_user_utterance(self, text: str) -> None:
-        if self._overlap_ratio(text, self.last_bot_text) > 0.8:
+        if _overlap_ratio(text, self.last_bot_text) > 0.8:
             logger.info("Echo suppressed call=%s", self.call_sid)
             return
         if self.bot_speaking:
