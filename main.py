@@ -21,16 +21,24 @@ app.include_router(whatsapp_webhooks.router)
 
 @app.get("/health")
 async def health():
+    from src.llm.client import _resolve_provider
+
+    try:
+        key, model, base_url = _resolve_provider()
+        llm_ok = bool(key)
+    except Exception:
+        model, base_url, llm_ok = "?", "?", False
     return {
         "status": "ok",
-        "model": settings.openrouter_model,
-        "llm_base_url": settings.llm_base_url,
+        "llm_provider": settings.llm_provider,
+        "model": model,
+        "llm_base_url": base_url,
         "call_target_number": settings.call_target_number,
         "twilio_configured": bool(settings.twilio_account_sid and settings.twilio_auth_token),
         "whatsapp_configured": bool(settings.whatsapp_access_token),
         "stt_configured": bool(settings.deepgram_api_key),
         "tts_configured": bool(settings.google_tts_api_key or settings.google_application_credentials),
-        "llm_configured": bool(settings.gemini_api_key or settings.openrouter_api_key),
+        "llm_configured": llm_ok,
         "media_stream_enabled": settings.enable_media_stream and bool(settings.public_webhook_url),
     }
 

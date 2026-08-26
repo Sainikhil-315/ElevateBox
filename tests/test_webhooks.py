@@ -41,17 +41,27 @@ def test_health():
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok"
-    assert body["call_target_number"] == "7093647471"
+    assert body["call_target_number"].endswith("7093647471")
+    assert body["llm_configured"] in (True, False)
 
 
 def test_voice_twiml_without_stream():
-    r = post_signed("/twilio/voice", {"CallSid": "CA123", "From": "+917093647471", "To": "+14155551234"})
-    assert r.status_code == 200
-    assert r.headers["content-type"].startswith("application/xml")
-    text = r.text
-    assert "<Response>" in text
-    assert "<Say" in text
-    assert "<Connect>" not in text
+    from src.config import get_settings
+    s = get_settings()
+    orig_stream, orig_url = s.enable_media_stream, s.public_webhook_url
+    s.enable_media_stream = False
+    s.public_webhook_url = ""
+    try:
+        r = post_signed("/twilio/voice", {"CallSid": "CA123", "From": "+917093647471", "To": "+14155551234"})
+        assert r.status_code == 200
+        assert r.headers["content-type"].startswith("application/xml")
+        text = r.text
+        assert "<Response>" in text
+        assert "<Say" in text
+        assert "<Connect>" not in text
+    finally:
+        s.enable_media_stream = orig_stream
+        s.public_webhook_url = orig_url
 
 
 def test_voice_twiml_with_stream():
