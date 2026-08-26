@@ -90,3 +90,35 @@ def test_language_tracked():
     })
     s.apply(parsed)
     assert s.language == "te"
+
+def test_no_downgrade_on_noise_turn_with_barrier():
+    s = state()
+    hot = _normalize({
+        "classification": "hot", "confidence": 85, "barrier": None, "language": "hi",
+        "signals": [sig("urgency", "positive", "Diwali tak ready chahiye")],
+    })
+    assert s.apply(hot) == "hot"
+    noise = _normalize({
+        "classification": "warm", "confidence": 70, "barrier": "budget", "language": "hi",
+        "signals": [sig("budget", "neutral", "budget")],
+    })
+    s.apply(noise)
+    assert s.classification == "hot"
+    assert s.barrier is None
+
+
+def test_barrier_accepted_only_with_negative_signal_or_high_confidence():
+    s = state()
+    weak = _normalize({
+        "classification": "warm", "confidence": 60, "barrier": "budget", "language": "en",
+        "signals": [sig("budget", "neutral", "budget")],
+    })
+    s.apply(weak)
+    assert s.barrier is None
+    strong = _normalize({
+        "classification": "warm", "confidence": 80, "barrier": "budget", "language": "en",
+        "signals": [sig("budget", "neutral", "what is your budget range")],
+    })
+    s.apply(strong)
+    assert s.barrier == "budget"
+    assert s.classification == "warm"

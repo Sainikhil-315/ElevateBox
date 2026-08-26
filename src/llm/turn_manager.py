@@ -91,10 +91,18 @@ class RunningState:
             elif p == "positive":
                 self.positive_signals += 1
 
+        barrier_accepted = False
         if barrier in ("budget", "timing", "decision_maker"):
-            self.barrier = barrier
+            matching_negative = any(
+                str(s.get("type", "")).lower() == barrier and str(s.get("polarity", "")).lower() == "negative"
+                for s in signals
+            )
+            if matching_negative or parsed["confidence"] >= 75:
+                self.barrier = barrier
+                barrier_accepted = True
         elif barrier is None and parsed["confidence"] >= 60:
             self.barrier = None
+            barrier_accepted = True
 
         proposed = cls if cls else self.classification
         has_timeline_question = any(
@@ -120,10 +128,8 @@ class RunningState:
         order = ["cold", "warm", "hot"]
         if proposed in order and order.index(proposed) > order.index(self.classification):
             self.classification = proposed
-        elif proposed == "cold" and self.rejections >= 2:
+        elif self.rejections >= 2:
             self.classification = "cold"
-        elif cls in order and parsed["confidence"] >= 60:
-            self.classification = cls
 
         self.confidence = parsed["confidence"]
         if parsed["language"] in VALID_LANGS:
