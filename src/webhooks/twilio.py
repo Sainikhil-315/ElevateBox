@@ -43,12 +43,6 @@ async def voice(request: Request) -> Response:
 
     s = get_settings()
     resp = VoiceResponse()
-    resp.say(
-        "Hello! One moment please.",
-        voice="Polly.Aditi",
-        language="en-IN",
-    )
-    resp.pause(length=1)
 
     if s.enable_media_stream and s.public_webhook_url:
         connect = Connect()

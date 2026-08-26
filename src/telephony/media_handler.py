@@ -16,6 +16,20 @@ FRAME_BYTES = 1600
 MIN_UTTERANCE_CHARS = 2
 MIN_CONFIDENCE = 0.5
 
+GREETING = (
+    "Hello! Main Priya bol rahi hoon Nikhil Studios se. "
+    "Aapke business ko online badhane ke liye e-commerce website ke baare mein baat karni thi. "
+    "Ek minute mil sakte hain?"
+)
+
+NUDGES = [
+    "Hello? Sun rahe hain aap?",
+    "Main sun rahi hoon, jab aap ready ho bataiye.",
+]
+SILENCE_NUDGE_AFTER = 8.0
+SILENCE_NUDGE_REPEAT = 12.0
+MAX_NUDGES = 2
+
 
 def _overlap_ratio(a: str, b: str) -> float:
     aw = set(a.lower().split())
@@ -38,6 +52,9 @@ class MediaSession:
         self.last_bot_text = ""
         self._utterance_buffer: list[str] = []
         self._stopped = False
+        self.last_user_activity = 0.0
+        self._nudges_sent = 0
+        self._watchdog: asyncio.Task | None = None
 
     async def _send(self, message: dict) -> None:
         async with self._send_lock:
@@ -59,6 +76,7 @@ class MediaSession:
                     await self.dg.start()
                     consumer.cancel()
                     consumer = asyncio.create_task(self._transcript_consumer())
+                    asyncio.create_task(self._open_call())
                     logger.info("Media session started: call=%s stream=%s", self.call_sid, self.stream_sid)
                 elif event == "media":
                     if self.dg:
@@ -70,6 +88,8 @@ class MediaSession:
         finally:
             self._stopped = True
             consumer.cancel()
+            if self._watchdog:
+                self._watchdog.cancel()
             if self._speak_task:
                 self._speak_task.cancel()
             if self.dg:
@@ -77,6 +97,37 @@ class MediaSession:
 
     async def _noop(self) -> None:
         await asyncio.sleep(3600)
+
+    async def _open_call(self) -> None:
+        import time as _time
+
+        await asyncio.sleep(0.6)
+        if self._stopped:
+            return
+        self.last_user_activity = _time.monotonic()
+        logger.info("GREETING call=%s: proactive opening", self.call_sid)
+        await self.speak(GREETING, "hi")
+        if self._stopped:
+            return
+        self._watchdog = asyncio.create_task(self._silence_watchdog())
+
+    async def _silence_watchdog(self) -> None:
+        import time as _time
+
+        try:
+            while not self._stopped and self._nudges_sent < MAX_NUDGES:
+                await asyncio.sleep(1.0)
+                if self.bot_speaking or not self.stream_sid:
+                    continue
+                quiet_for = _time.monotonic() - self.last_user_activity
+                threshold = SILENCE_NUDGE_AFTER if self._nudges_sent == 0 else SILENCE_NUDGE_REPEAT
+                if quiet_for >= threshold:
+                    nudge = NUDGES[self._nudges_sent]
+                    self._nudges_sent += 1
+                    logger.info("SILENCE call=%s: nudge %d after %.0fs quiet", self.call_sid, self._nudges_sent, quiet_for)
+                    await self.speak(nudge, "hi")
+        except asyncio.CancelledError:
+            pass
 
     async def _transcript_consumer(self) -> None:
         try:
@@ -137,6 +188,10 @@ class MediaSession:
         if self.bot_speaking:
             await self.interrupt()
 
+        import time as _time
+
+        self.last_user_activity = _time.monotonic()
+        self._nudges_sent = 0
         append_turn(self.call_sid, "user", text)
         logger.info("USER call=%s says: %s", self.call_sid, text)
         result = await self.turn_manager.handle_transcript(text)
