@@ -137,7 +137,11 @@ class RunningState:
         return self.classification
 
     def context_note(self) -> str:
-        parts = [f"Current lead status: {self.classification.upper()}"]
+        lang_name = {"en": "English", "hi": "Hindi", "te": "Telugu"}.get(self.language, "English")
+        parts = [
+            f"Current lead status: {self.classification.upper()}",
+            f"Current conversation language: {lang_name} — reply in {lang_name} unless the caller explicitly switches",
+        ]
         if self.barrier:
             parts.append(f"Known barrier: {self.barrier}")
         if self.rejections:
