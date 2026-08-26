@@ -138,6 +138,7 @@ class MediaSession:
             await self.interrupt()
 
         append_turn(self.call_sid, "user", text)
+        logger.info("USER call=%s says: %s", self.call_sid, text)
         result = await self.turn_manager.handle_transcript(text)
         append_turn(
             self.call_sid,
@@ -151,9 +152,33 @@ class MediaSession:
             classification=result.classification,
             barrier=result.barrier,
         )
+
+        prev_cls = getattr(self, "last_classification", None)
+        if prev_cls and prev_cls != result.classification:
+            logger.info(
+                "LEAD-CHANGE call=%s: %s -> %s",
+                self.call_sid, prev_cls.upper(), result.classification.upper(),
+            )
+        self.last_classification = result.classification
+
+        sig_parts = []
+        for s in result.signals:
+            sig_parts.append(
+                f'{s.get("type", "?")}/{s.get("polarity", "?")} ["{(s.get("quote") or "")[:50]}"]'
+            )
         logger.info(
-            "Turn call=%s lang=%s cls=%s latency=%dms fallback=%s reply=%s",
-            self.call_sid, result.language, result.classification, result.latency_ms, result.used_fallback, result.reply[:60],
+            "INTENT call=%s lang=%s lead=%s(conf=%d) barrier=%s action=%s signals=[%s]",
+            self.call_sid,
+            result.language,
+            result.classification.upper(),
+            result.confidence,
+            result.barrier or "none",
+            result.action,
+            " | ".join(sig_parts) if sig_parts else "none detected",
+        )
+        logger.info(
+            "BOT call=%s latency=%dms fallback=%s says: %s",
+            self.call_sid, result.latency_ms, result.used_fallback, result.reply[:80],
         )
         await self._run_actions(result)
         await self.speak(result.reply, result.language)
