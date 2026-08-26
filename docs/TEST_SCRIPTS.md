@@ -4,23 +4,25 @@ Play these on the phone when Priya calls 7093647471. Each targets a different
 intent. After each call, check the server logs for `LEAD-CHANGE` and `INTENT` lines
 and confirm the final classification matches the expected one.
 
+Languages: Hindi + English (incl. Hinglish) — Deepgram nova-3 covers these two.
+
 ---
 
 ## Script 1 — HOT (expected: hot, WhatsApp should fire mid-call)
 
 You run a mobile accessories shop and you NEED a website soon. Ask price early,
-ask timeline, agree to WhatsApp.
+ask timeline, agree to WhatsApp. Mix Hindi-English naturally.
 
 - "Haan hello?"
-- "Haan bhai, tell me"
-- "Mobile accessories shop anna, Guntur lo. Charger covers earphones anni vuntayi"
-- "Around 300-400 items vuntayi shop lo"
-- "Website enduku kavali ante, big days lo sales ekkuva avvali, Diwali ki ready ga vundali"
-- "Enta cost avtundi roughly?"
-- "OK ok. Inka eppudu ready cheyyagalaru?"
-- "Payment options kuda vundaa? UPI and cards?"
-- "Haan haan super. WhatsApp cheseyyandi details, chuskuntam"
-- "Sare anna, thank you"
+- "Haan bhai, boliye"
+- "Mobile accessories ki dukaan hai meri, Guntur mein. Charger, covers, earphones sab"
+- "Around 300-400 items hain dukaan pe"
+- "Website kyun chahiye... Diwali pe sales badhani hai, us se pehle ready chahiye"
+- "Kitne ka padega roughly?"
+- "OK ok. Aur kab tak ready kar paoge?"
+- "Payment options bhi honge na? UPI, cards?"
+- "Haan haan badhiya. WhatsApp kar do details, dekh leta hoon"
+- "Theek hai bhai, thank you"
 
 Expected log trail: signals with budget + timeline/urgency positive -> LEAD-CHANGE
 -> HOT -> action={'type': 'send_whatsapp'}
@@ -51,14 +53,14 @@ callback_phrase captured -> resolved timestamp in logs
 ## Script 3 — COLD (expected: cold, polite quick close)
 
 Just picked up randomly, zero interest, minimal answers. Don't be rude, just be
-indifferent like someone busy.
+indifferent like someone busy. Full English this time — tests the English path.
 
 - "Hello?"
-- "Kaun cheppu... evaru?"
-- "Website aa... naku enduku le"
-- "Em panchavvadu online lo... naku antha scene ledu"
-- "Konchem busy ga vunna, inko call cheyyi time ki"
-- "Haan sare sare, bye"
+- "Who is this... what's this about?"
+- "A website? Nah, I don't think I need one"
+- "I don't really sell anything online... it's a small shop"
+- "Look, I'm a bit busy right now, call me some other time"
+- "Yeah yeah, fine, bye"
 
 Expected log trail: deflection/negative signals -> stays COLD -> no WhatsApp
 action -> polite short close from bot

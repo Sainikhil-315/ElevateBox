@@ -1,7 +1,7 @@
 # ElevateBox Voice Agent
 
 AI voice agent that places an outbound sales call for e-commerce website development,
-qualifies the lead in Telugu / Hindi / English (including code-switching), classifies
+qualifies the lead in Hindi / English (including Hinglish code-switching), classifies
 intent as Hot / Warm / Cold from indirect signals, fires a WhatsApp message **mid-call**
 on high intent, books callbacks from vague spoken times, and sends a contextual
 follow-up WhatsApp with resume + architecture.
@@ -14,7 +14,7 @@ Built for the ElevateBox SDE Intern assignment.
 |---|---|
 | Telephony | Twilio Programmable Voice (`<Connect><Stream>` â†’ WebSocket) |
 | STT | Deepgram streaming |
-| LLM | OpenRouter (free-tier models; benchmarked before commit) |
+| LLM | Groq (primary) / Gemini / OpenAI — provider-switchable via `LLM_PROVIDER` |
 | TTS | Google Cloud TTS (`en-IN`, `hi-IN`, `te-IN`) |
 | WhatsApp | Meta WhatsApp Business Cloud API |
 | Backend | Python 3.11+, FastAPI, asyncio (in-process task queue for mid-call actions) |
