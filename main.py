@@ -62,6 +62,76 @@ async def media_stream(ws: WebSocket):
     except WebSocketDisconnect:
         logger.info("Media WS disconnected call=%s", session.call_sid)
 
+@app.post("/whatsapp/test-full")
+async def test_whatsapp_full():
+    from src.whatsapp.dispatcher import _post
+    from src.config import get_settings
+
+    s = get_settings()
+
+    results = []
+
+    # 1. Text
+    text_payload = {
+        "messaging_product": "whatsapp",
+        "to": "917093647471",
+        "type": "text",
+        "text": {
+            "body": (
+                f"Hi! This is {s.applicant_name}.\n\n"
+                "Here are the details we discussed.\n\n"
+                f"You can reach me on {s.applicant_mobile_number}"
+            )
+        }
+    }
+
+    results.append({
+        "type": "text",
+        "response": await _post(text_payload)
+    })
+
+    # 2. Resume
+    if s.resume_url:
+        resume_payload = {
+            "messaging_product": "whatsapp",
+            "to": "917093647471",
+            "type": "document",
+            "document": {
+                "link": s.resume_url,
+                "filename": "resume.pdf",
+                "caption": "My resume"
+            }
+        }
+
+        results.append({
+            "type": "resume",
+            "response": await _post(resume_payload)
+        })
+
+    # 3. Architecture image
+    if s.architecture_image_url:
+        image_payload = {
+            "messaging_product": "whatsapp",
+            "to": "917093647471",
+            "type": "image",
+            "image": {
+                "link": s.architecture_image_url,
+                "caption": "How I built it — architecture"
+            }
+        }
+
+        results.append({
+            "type": "architecture",
+            "response": await _post(image_payload)
+        })
+
+    return {
+        "applicant_name": s.applicant_name,
+        "applicant_mobile_number": s.applicant_mobile_number,
+        "resume_url": s.resume_url,
+        "architecture_image_url": s.architecture_image_url,
+        "results": results
+    }
 
 if __name__ == "__main__":
     import uvicorn
